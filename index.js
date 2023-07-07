@@ -12,7 +12,11 @@ class IM {
   constructor() {
     this.initialized = false;
     this.idsSeen = [];
-    this.cumulio = new Cumulio({api_key: process.env.CUMULIO_API_KEY, api_token: process.env.CUMULIO_API_SECRET});
+    this.cumulio = new Cumulio({
+      host: process.env.CUMULIO_API_HOST_URL,
+      api_key: process.env.CUMULIO_API_KEY,
+      api_token: process.env.CUMULIO_API_SECRET
+    });
     this.openai = new OpenAIApi(new Configuration({
       apiKey: process.env.OPENAI_API_SECRET,
     }));
