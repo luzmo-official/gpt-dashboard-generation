@@ -10,33 +10,49 @@ require('dotenv').config();
 class IM {
 
   constructor() {
-    this.initialized = false;
-    this.idsSeen = [];
+    if (process.env.CUMULIO_API_KEY?.length <= 0 || process.env.CUMULIO_API_SECRET?.length <= 0) {
+      throw new Error("You must specify the `CUMULIO_API_KEY` and `CUMULIO_API_SECRET` environment variables for this script to work. You can create these in your Cumul.io profile: https://app.cumul.io/profile/api-tokens.");
+    }
+
     this.cumulio = new Cumulio({
-      host: process.env.CUMULIO_API_HOST_URL,
+      host: process.env.CUMULIO_API_HOST_URL?.length > 0 ? process.env.CUMULIO_API_HOST_URL : null,
       api_key: process.env.CUMULIO_API_KEY,
       api_token: process.env.CUMULIO_API_SECRET
     });
+    console.log("Using the following Cumul.io Environment: ", Cumulio.HOST);
+    
+    if (process.env.OPENAI_API_SECRET?.length <= 0) {
+      throw new Error("You must specify the `OPENAI_API_SECRET` environment variables for this script to work, see OpenAI for more information. You can create a free OpenAI account here: https://platform.openai.com/.");
+    }
+    
     this.openai = new OpenAIApi(new Configuration({
       apiKey: process.env.OPENAI_API_SECRET,
     }));
+        
+    this.initialized = false;
+    this.idsSeen = [];
+    
     console.log('[AI] Listening for new Cumul.io datasets')
   }
 
   async run() {
-    if (!this.initialized) {
-      this.idsSeen = (await this.getNewDatasets()).rows.map(set => set.id);
-      this.initialized = true;
-      console.log('ids seen', this.idsSeen);
-    }
-    else {
-      let datasets = (await this.getNewDatasets()).rows;
-      console.log('new sets', datasets.rows);
-      this.idsSeen = this.idsSeen.concat(datasets.map(set => set.id));
-      for (const dataset of datasets) {
-        await this.composeDashboard(dataset);
+    this.getNewDatasets().then(result => {
+      if (!this.initialized) {
+        this.idsSeen = result.rows.map(set => set.id);
+        this.initialized = true;
+        console.log('ids seen', this.idsSeen);
       }
-    }
+      else {
+        let datasets = result.rows;
+        console.log('new sets', datasets.rows);
+        this.idsSeen = this.idsSeen.concat(datasets.map(set => set.id));
+        datasets.forEach(async(dataset) => {
+          await this.composeDashboard(dataset);
+        });
+      }
+    }).catch(error => {
+      console.log("An error occurred while getting the new datasets: ", error);
+    });
   }
 
   async composeDashboard(dataset) {
